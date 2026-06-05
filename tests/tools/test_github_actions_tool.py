@@ -346,3 +346,26 @@ final runner summary
     assert "line 1" in result["log_text"]
     assert "annotation between groups" in result["log_text"]
     assert "runner setup before groups" not in result["log_text"]
+
+
+def test_extract_step_log_invalid_step_number() -> None:
+    result = extract_step_log(
+        """runner setup before groups
+##[group]Checkout
+line 1
+##[endgroup]
+annotation between groups
+##[group]Deploy
+line 2
+##[endgroup]
+final runner summary
+""",
+        step_number=3,
+    )
+    assert result["step_name"] == "full-log"
+    assert result["match_strategy"] == "full-log"
+    assert "runner setup before groups" in result["log_text"]
+    assert "line 1" in result["log_text"]
+    assert "annotation between groups" in result["log_text"]
+    assert "line 2" in result["log_text"]
+    assert "final runner summary" in result["log_text"]
