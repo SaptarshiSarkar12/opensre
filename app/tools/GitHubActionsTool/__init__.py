@@ -203,7 +203,8 @@ def extract_step_log(
                 selected_idx = i
                 break
 
-    if selected is None and step_number is not None and 1 <= step_number <= len(sections):
+    group_count = sum(1 for s in sections if s.get("name") != UNGROUPED_SECTION_NAME)
+    if selected is None and step_number is not None and 1 <= step_number <= group_count:
         group_counter = 0
         for i, section in enumerate(sections):
             if section.get("name") != UNGROUPED_SECTION_NAME:

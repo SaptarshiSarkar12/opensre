@@ -325,3 +325,24 @@ final runner summary
     assert "runner setup before groups" not in result["log_text"]
     assert "line 2" not in result["log_text"]
     assert "final runner summary" not in result["log_text"]
+
+
+def test_extract_step_log_prefers_step_number() -> None:
+    result = extract_step_log(
+        """runner setup before groups
+##[group]Checkout
+line 1
+##[endgroup]
+annotation between groups
+##[group]Deploy
+line 2
+##[endgroup]
+final runner summary
+""",
+        step_number=1,
+    )
+    assert result["step_name"] == "Checkout"
+    assert result["match_strategy"] == "step_number"
+    assert "line 1" in result["log_text"]
+    assert "annotation between groups" in result["log_text"]
+    assert "runner setup before groups" not in result["log_text"]
