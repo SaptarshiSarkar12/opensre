@@ -270,6 +270,15 @@ class SessionCore:
     def github_repo_scope(self, value: tuple[str, str] | None) -> None:
         self.integrations.github_repo_scope = value
 
+    @property
+    def gitlab_repo_scope(self) -> tuple[str, str, str] | None:
+        """Sticky project/ref/file inferred from chat, env, or git remote for GitLab tools."""
+        return self.integrations.gitlab_repo_scope
+
+    @gitlab_repo_scope.setter
+    def gitlab_repo_scope(self, value: tuple[str, str, str] | None) -> None:
+        self.integrations.gitlab_repo_scope = value
+
     def refresh_runtime_metadata(self) -> None:
         """Repopulate :attr:`runtime_metadata` from current process facts."""
         from config.runtime_metadata import build_runtime_metadata

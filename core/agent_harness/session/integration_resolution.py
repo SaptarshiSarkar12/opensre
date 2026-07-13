@@ -1,7 +1,7 @@
 """Per-session integration state, cache helpers, and turn-time resolution.
 
 Owns everything session-scoped for integration discovery: configured service
-names, the resolved-config cache, GitHub repo scope, background warm tasks, and
+names, the resolved-config cache, repository scopes, background warm tasks, and
 ``resolve_and_cache_integrations`` for the turn engine.
 
 ``SessionCore`` composes :class:`IntegrationState` as ``session.integrations`` and
@@ -105,6 +105,8 @@ class IntegrationState:
     pass. Cleared by :meth:`refresh` when integrations change."""
     github_repo_scope: tuple[str, str] | None = None
     """Sticky owner/repo inferred from chat, env, or git remote for GitHub tools."""
+    gitlab_repo_scope: tuple[str, str, str] | None = None
+    """Sticky project/ref/file inferred from chat, env, or git remote for GitLab tools."""
 
     _warm_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
     _warm_generation: int = field(default=0, repr=False, compare=False)
@@ -194,5 +196,6 @@ class IntegrationState:
             if drop_cache:
                 self.resolved_cache = None
                 self.github_repo_scope = None
+                self.gitlab_repo_scope = None
         if pending is not None and not pending.done():
             pending.cancel()
