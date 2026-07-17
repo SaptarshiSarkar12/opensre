@@ -771,6 +771,35 @@ class JiraIntegrationConfig(StrictConfigModel):
         return f"{self.base_url}/rest/api/3"
 
 
+class ServiceNowIntegrationConfig(StrictConfigModel):
+    """Normalized ServiceNow credentials used by resolution and verification flows."""
+
+    instance_url: str
+    username: str
+    password: str
+    integration_id: str = ""
+
+    @field_validator("instance_url", mode="before")
+    @classmethod
+    def _normalize_instance_url(cls, value: object) -> str:
+        normalized = normalize_url()(value)
+        return validate_https_or_loopback_http_url(
+            normalized, service_name="servicenow", field_name="instance_url"
+        )
+
+    _normalize_strs = field_validator("username", "password", "integration_id", mode="before")(
+        normalize_str()
+    )
+
+    @property
+    def auth(self) -> tuple[str, str]:
+        return (self.username, self.password)
+
+    @property
+    def api_base(self) -> str:
+        return f"{self.instance_url}/api/now"
+
+
 class NotionIntegrationConfig(StrictConfigModel):
     """Normalized Notion credentials used by resolution and verification flows."""
 

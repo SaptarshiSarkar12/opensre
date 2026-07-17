@@ -38,6 +38,7 @@ from integrations.config_models import (
     OpsGenieIntegrationConfig,
     PagerDutyIntegrationConfig,
     RocketChatConfig,
+    ServiceNowIntegrationConfig,
     SlackWebhookConfig,
     SMTPIntegrationConfig,
     SplunkIntegrationConfig,
@@ -104,6 +105,7 @@ from integrations.sentry import build_sentry_config
 from integrations.sentry import classify as _classify_sentry
 from integrations.sentry_mcp import DEFAULT_SENTRY_MCP_URL, build_sentry_mcp_config
 from integrations.sentry_mcp import classify as _classify_sentry_mcp
+from integrations.servicenow import classify as _classify_servicenow
 from integrations.signoz import classify as _classify_signoz
 from integrations.signoz import signoz_config_from_env
 from integrations.slack.classify import classify as _classify_slack
@@ -260,6 +262,7 @@ _CLASSIFIERS: dict[str, _ClassifyFn] = {
     "pagerduty": _classify_pagerduty,
     "incident_io": _classify_incident_io,
     "jira": _classify_jira,
+    "servicenow": _classify_servicenow,
     "discord": _classify_discord,
     "telegram": _classify_telegram,
     "rocketchat": _classify_rocketchat,
@@ -862,6 +865,34 @@ def load_env_integrations() -> list[dict[str, Any]]:
                 _active_env_record(
                     "jira",
                     jira_config.model_dump(exclude={"integration_id"}),
+                )
+            )
+
+    servicenow_instance_url = os.getenv("SERVICENOW_INSTANCE_URL", "").strip()
+    servicenow_username = os.getenv("SERVICENOW_USERNAME", "").strip()
+    # Resolve the password (env, then OS keyring) only once the cheap env vars
+    # are present, so unconfigured installs never pay a keyring roundtrip here.
+    servicenow_password = (
+        resolve_env_credential("SERVICENOW_PASSWORD")
+        if servicenow_instance_url and servicenow_username
+        else ""
+    )
+    if servicenow_instance_url and servicenow_username and servicenow_password:
+        try:
+            servicenow_config = ServiceNowIntegrationConfig.model_validate(
+                {
+                    "instance_url": servicenow_instance_url,
+                    "username": servicenow_username,
+                    "password": servicenow_password,
+                }
+            )
+        except Exception as exc:
+            _report_env_loader_failure(exc, integration="servicenow")
+        else:
+            integrations.append(
+                _active_env_record(
+                    "servicenow",
+                    servicenow_config.model_dump(exclude={"integration_id"}),
                 )
             )
 
