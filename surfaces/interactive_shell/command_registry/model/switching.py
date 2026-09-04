@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from rich.console import Console
 from rich.markup import escape
@@ -67,6 +68,31 @@ def _is_model_allowed(provider: object, model: str) -> bool:
     if _is_model_supported(provider_value, model, provider_models):
         return True
     return bool(model) and _provider_allows_custom_models(provider)
+
+
+def _validate_selected_model(provider: Any, model: str, console: Console) -> bool:
+    """Run live credential/model validation before switching."""
+    from surfaces.shared.llm_setup.catalog import WizardCredentialKind
+
+    # Only validate API-based or Host-based providers (skip CLI/ambient providers)
+    if provider.credential_kind not in (WizardCredentialKind.API_KEY, WizardCredentialKind.HOST):
+        return True
+
+    from config.llm_credentials import resolve_env_credential
+    from surfaces.shared.llm_setup.validation import validate_provider_credentials
+
+    api_key = ""
+    if provider.api_key_env:
+        api_key = resolve_env_credential(provider.api_key_env) or provider.credential_default
+
+    console.print(f"[{DIM}]validating {model}…[/]")
+    validation = validate_provider_credentials(provider=provider, api_key=api_key, model=model)
+
+    if not validation.ok:
+        console.print(f"[{ERROR}]Model validation failed:[/] {validation.detail}")
+        return False
+
+    return True
 
 
 def _resolve_omitted_model(provider: object) -> str:
@@ -217,6 +243,9 @@ def switch_llm_provider(
         )
         return False
 
+    if selected_model and not _validate_selected_model(provider, selected_model, console):
+        return False
+
     selected_toolcall: str | None = None
     if toolcall_model is not None:
         if not provider.toolcall_model_env:
@@ -293,6 +322,8 @@ def switch_toolcall_model(
     if not new_model:
         console.print(f"[{ERROR}]toolcall model cannot be empty[/]")
         return False
+    if not _validate_selected_model(provider, new_model, console):
+        return False
 
     values = {provider.toolcall_model_env: new_model}
     env_path = sync_env_values(values)
@@ -342,6 +373,8 @@ def switch_reasoning_model(
         console.print(
             f"[{DIM}]known reasoning models:[/] {escape(_format_supported_models(provider.models))}"
         )
+        return False
+    if not _validate_selected_model(provider, new_model, console):
         return False
 
     env_path = sync_reasoning_model_env(provider=provider, model=new_model)

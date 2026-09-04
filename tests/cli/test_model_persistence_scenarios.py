@@ -14,6 +14,7 @@ from surfaces.interactive_shell.command_registry import dispatch_slash
 from surfaces.interactive_shell.command_registry import repl_data as repl_data_module
 from surfaces.interactive_shell.session import Session
 from surfaces.shared.llm_setup.catalog import PROJECT_ENV_PATH, PROJECT_ROOT, PROVIDER_BY_VALUE
+from surfaces.shared.llm_setup.validation_result import ValidationResult
 
 
 def _capture() -> tuple[Console, io.StringIO]:
@@ -40,6 +41,10 @@ def patch_llm_settings(monkeypatch: pytest.MonkeyPatch) -> None:
         anthropic_toolcall_model = "claude-haiku-4-5-20251001"
 
     monkeypatch.setattr(repl_data_module, "load_llm_settings", lambda: _Fake())
+    monkeypatch.setattr(
+        "surfaces.shared.llm_setup.validation.validate_provider_credentials",
+        lambda **kwargs: ValidationResult(ok=True, detail="Mocked success", sample_response="ok"),  # noqa: ARG005
+    )
 
 
 class TestProjectPaths:
@@ -290,3 +295,31 @@ class TestReplModelPersistence:
         )
         stored = wizard_store.load_local_config(persistence_paths["store"])
         assert stored["targets"]["local"]["model"] == model
+
+    def test_model_set_ollama_invalid_model_does_not_persist(
+        self,
+        persistence_paths: dict[str, Path],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from surfaces.shared.llm_setup.validation_result import ValidationResult
+
+        # Override the class-level mock to simulate a validation failure
+        monkeypatch.setattr(
+            "surfaces.shared.llm_setup.validation.validate_provider_credentials",
+            lambda **kwargs: ValidationResult(ok=False, detail="Model 'ghost-model' not found."),  # noqa: ARG005
+        )
+
+        console, buf = _capture()
+
+        # Execute the slash command
+        dispatch_slash("/model set ollama ghost-model", Session(), console)
+
+        output = buf.getvalue()
+
+        # Assert the validation error was printed to the REPL buffer
+        assert "Model validation failed" in output
+        assert "ghost-model" in output
+
+        # Assert the configuration files were NEVER created or modified
+        assert not persistence_paths["env"].exists()
+        assert not persistence_paths["store"].exists()
