@@ -30,6 +30,13 @@ class _Console:
 def _no_account_model_lock(monkeypatch: Any) -> None:
     monkeypatch.setattr("config.account.account_llm_route", lambda: None)
 
+    from surfaces.shared.llm_setup.validation_result import ValidationResult
+
+    monkeypatch.setattr(
+        "surfaces.interactive_shell.command_registry.model.switching.validate_provider_credentials",
+        lambda **kwargs: ValidationResult(ok=True, detail="Mocked success", sample_response="ok"),  # noqa: ARG005
+    )
+
 
 def _credential_status_sequence(monkeypatch: Any, *, configured_after: bool) -> None:
     """First check reports missing; the re-check after a save reports the result."""

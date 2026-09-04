@@ -10,7 +10,10 @@ from rich.markup import escape
 
 import surfaces.interactive_shell.command_registry.repl_data as repl_data
 from config.constants.llm import LLM_PROVIDER_ENV
+from config.llm_credentials import resolve_env_credential
 from surfaces.interactive_shell.ui import DIM, ERROR, HIGHLIGHT, WARNING, render_models_table
+from surfaces.shared.llm_setup.catalog import PROVIDER_BY_VALUE, WizardCredentialKind
+from surfaces.shared.llm_setup.validation import validate_provider_credentials
 from surfaces.shared.terminal.components.choice_menu import print_valid_choice_list
 
 
@@ -72,14 +75,9 @@ def _is_model_allowed(provider: object, model: str) -> bool:
 
 def _validate_selected_model(provider: Any, model: str, console: Console) -> bool:
     """Run live credential/model validation before switching."""
-    from surfaces.shared.llm_setup.catalog import WizardCredentialKind
-
     # Only validate API-based or Host-based providers (skip CLI/ambient providers)
     if provider.credential_kind not in (WizardCredentialKind.API_KEY, WizardCredentialKind.HOST):
         return True
-
-    from config.llm_credentials import resolve_env_credential
-    from surfaces.shared.llm_setup.validation import validate_provider_credentials
 
     api_key = ""
     if provider.api_key_env:
@@ -136,7 +134,6 @@ def switch_llm_provider(
         return False
 
     from config.llm_auth.credentials import status as credential_status
-    from surfaces.shared.llm_setup.catalog import PROVIDER_BY_VALUE
     from surfaces.shared.llm_setup.env_sync import sync_provider_env
 
     provider_key = provider_name.strip().lower()
@@ -243,9 +240,6 @@ def switch_llm_provider(
         )
         return False
 
-    if selected_model and not _validate_selected_model(provider, selected_model, console):
-        return False
-
     selected_toolcall: str | None = None
     if toolcall_model is not None:
         if not provider.toolcall_model_env:
@@ -264,6 +258,15 @@ def switch_llm_provider(
                     f"{escape(_format_supported_models(provider.models))}"
                 )
                 return False
+
+    if selected_model and not _validate_selected_model(provider, selected_model, console):
+        return False
+
+    if selected_toolcall and selected_toolcall != selected_model:
+        # Validate the toolcall model separately if it's different from the reasoning model.
+        valid = _validate_selected_model(provider, selected_toolcall, console)
+        if not valid:
+            return False
 
     env_path = sync_provider_env(
         provider=provider,
@@ -299,7 +302,6 @@ def switch_toolcall_model(
         return False
 
     from config.env_file import sync_env_values
-    from surfaces.shared.llm_setup.catalog import PROVIDER_BY_VALUE
 
     raw_name = provider_name if provider_name else os.getenv(LLM_PROVIDER_ENV, "anthropic")
     resolved_name = (raw_name or "anthropic").strip().lower()
@@ -321,6 +323,12 @@ def switch_toolcall_model(
     new_model = _normalize_model_id(toolcall_model)
     if not new_model:
         console.print(f"[{ERROR}]toolcall model cannot be empty[/]")
+        return False
+    if not _is_model_allowed(provider, new_model):
+        console.print(f"[{ERROR}]unknown model for {provider.value}:[/] {escape(new_model)}")
+        console.print(
+            f"[{DIM}]known toolcall models:[/] {escape(_format_supported_models(provider.models))}"
+        )
         return False
     if not _validate_selected_model(provider, new_model, console):
         return False
@@ -349,7 +357,6 @@ def switch_reasoning_model(
     if _account_model_change_is_locked(console):
         return False
 
-    from surfaces.shared.llm_setup.catalog import PROVIDER_BY_VALUE
     from surfaces.shared.llm_setup.env_sync import sync_reasoning_model_env
 
     raw_name = provider_name if provider_name else os.getenv(LLM_PROVIDER_ENV, "anthropic")
@@ -391,8 +398,6 @@ def switch_reasoning_model(
 
 def restore_default_model(provider_name: str, console: Console) -> bool:
     """Reset a provider to its configured default reasoning model."""
-    from surfaces.shared.llm_setup.catalog import PROVIDER_BY_VALUE
-
     provider_key = provider_name.strip().lower()
     provider = PROVIDER_BY_VALUE.get(provider_key)
     if provider is None:
