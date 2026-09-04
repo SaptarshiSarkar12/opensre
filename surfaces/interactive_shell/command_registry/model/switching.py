@@ -83,13 +83,12 @@ def _validate_selected_model(provider: Any, model: str, console: Console) -> boo
     if provider.api_key_env:
         api_key = resolve_env_credential(provider.api_key_env) or provider.credential_default
 
-    console.print(f"[{DIM}]validating {model}…[/]")
+    console.print(f"[{DIM}]validating {escape(model)}…[/]")
     validation = validate_provider_credentials(provider=provider, api_key=api_key, model=model)
 
     if not validation.ok:
-        console.print(f"[{ERROR}]Model validation failed:[/] {validation.detail}")
+        console.print(f"[{ERROR}]Model validation failed:[/] {escape(validation.detail)}")
         return False
-
     return True
 
 
@@ -278,12 +277,12 @@ def switch_llm_provider(
     # Be explicit about which slot each model lands in.
     console.print(f"[{HIGHLIGHT}]switched LLM provider:[/] {provider.value}")
     console.print(
-        f"[{HIGHLIGHT}]reasoning model:[/] {selected_model or 'provider default'} "
+        f"[{HIGHLIGHT}]reasoning model:[/] {escape(selected_model) if selected_model else 'provider default'} "
         f"[{DIM}]({provider.model_env})[/]"
     )
     if selected_toolcall:
         console.print(
-            f"[{HIGHLIGHT}]toolcall model:[/] {selected_toolcall} "
+            f"[{HIGHLIGHT}]toolcall model:[/] {escape(selected_toolcall)} "
             f"[{DIM}]({provider.toolcall_model_env})[/]"
         )
     console.print(f"[{DIM}]updated {env_path}[/]")
@@ -339,7 +338,7 @@ def switch_toolcall_model(
     _reset_runtime_llm_caches()
 
     console.print(
-        f"[{HIGHLIGHT}]toolcall model set to:[/] {new_model} "
+        f"[{HIGHLIGHT}]toolcall model set to:[/] {escape(new_model)} "
         f"[{DIM}]({provider.value} · {provider.toolcall_model_env})[/]"
     )
     console.print(f"[{DIM}]updated {env_path}[/]")
@@ -388,7 +387,7 @@ def switch_reasoning_model(
     _reset_runtime_llm_caches()
 
     console.print(
-        f"[{HIGHLIGHT}]reasoning model set to:[/] {new_model} "
+        f"[{HIGHLIGHT}]reasoning model set to:[/] {escape(new_model)} "
         f"[{DIM}]({provider.value} · {provider.model_env})[/]"
     )
     console.print(f"[{DIM}]updated {env_path}[/]")
