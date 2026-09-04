@@ -56,7 +56,7 @@ def _provider_validation_label(provider: ProviderOption) -> str:
     return provider.label
 
 
-def _check_ollama(host: str, model: str) -> ValidationResult:
+def _check_ollama(host: str, model: str, timeout: float = 60.0) -> ValidationResult:
     """Check Ollama server connectivity and verify model responds to inference."""
     import httpx
 
@@ -97,7 +97,7 @@ def _check_ollama(host: str, model: str) -> ValidationResult:
                 "messages": [{"role": "user", "content": "Reply with exactly: OpenSRE ready"}],
                 "max_tokens": 24,
             },
-            timeout=60.0,
+            timeout=timeout,
         )
         resp.raise_for_status()
         sample_text = (resp.json()["choices"][0]["message"]["content"] or "").strip()
@@ -116,10 +116,11 @@ def validate_provider_credentials(
     provider: ProviderOption,
     api_key: str,
     model: str,
+    timeout: float | None = None,
 ) -> ValidationResult:
     """Run a tiny live request against the selected provider."""
     if provider.value == "ollama":
-        return _check_ollama(host=api_key, model=model)
+        return _check_ollama(host=api_key, model=model, timeout=timeout or 60.0)
 
     if provider.value == "azure-openai":
         from surfaces.shared.llm_setup.azure_validation import (
@@ -131,6 +132,7 @@ def validate_provider_credentials(
             deployment=model,
             base_url=os.getenv(provider.endpoint_env, "").strip(),
             api_version=os.getenv(provider.api_version_env, "").strip(),
+            timeout=timeout or 60.0,
         )
 
     anthropic_client_cls, anthropic_auth_error = _load_anthropic_client()

@@ -42,6 +42,7 @@ def validate_credentials(
     deployment: str,
     base_url: str,
     api_version: str,
+    timeout: float = 30.0,
 ) -> ValidationResult:
     """Validate Azure OpenAI credentials with a tiny chat completion."""
     normalized_base = normalize_azure_openai_base_url(base_url)
@@ -59,7 +60,7 @@ def validate_credentials(
             api_key=api_key,
             base_url=azure_base,
             default_query={"api-version": resolved_api_version},
-            timeout=30.0,
+            timeout=timeout,
         )
         request_kwargs: dict[str, object] = {
             "model": deployment,

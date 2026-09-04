@@ -14,6 +14,7 @@ from config.llm_credentials import resolve_env_credential
 from surfaces.interactive_shell.ui import DIM, ERROR, HIGHLIGHT, WARNING, render_models_table
 from surfaces.shared.llm_setup.catalog import PROVIDER_BY_VALUE, WizardCredentialKind
 from surfaces.shared.llm_setup.validation import validate_provider_credentials
+from surfaces.shared.terminal.components import llm_loader
 from surfaces.shared.terminal.components.choice_menu import print_valid_choice_list
 
 
@@ -83,8 +84,17 @@ def _validate_selected_model(provider: Any, model: str, console: Console) -> boo
     if provider.api_key_env:
         api_key = resolve_env_credential(provider.api_key_env) or provider.credential_default
 
-    console.print(f"[{DIM}]validating {escape(model)}…[/]")
-    validation = validate_provider_credentials(provider=provider, api_key=api_key, model=model)
+    try:
+        with llm_loader(console, f"Validating {escape(model)}..."):
+            validation = validate_provider_credentials(
+                provider=provider, api_key=api_key, model=model, timeout=10.0
+            )
+    except KeyboardInterrupt:
+        console.print(
+            f"[{WARNING}]Model validation cancelled.[/]",
+            markup=True,
+        )
+        return False
 
     if not validation.ok:
         console.print(f"[{ERROR}]Model validation failed:[/] {escape(validation.detail)}")
