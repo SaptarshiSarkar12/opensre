@@ -38,11 +38,11 @@ def patch_llm_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     class _Fake:
         provider = "anthropic"
         anthropic_reasoning_model = "claude-opus-4-7"
-        anthropic_toolcall_model = "claude-haiku-4-5-20251001"
+        anthropic_toolcall_model = "claude-haiku-4-5"
 
     monkeypatch.setattr(repl_data_module, "load_llm_settings", lambda: _Fake())
     monkeypatch.setattr(
-        "surfaces.shared.llm_setup.validation.validate_provider_credentials",
+        "surfaces.interactive_shell.command_registry.model.switching.validate_provider_credentials",
         lambda **kwargs: ValidationResult(ok=True, detail="Mocked success", sample_response="ok"),  # noqa: ARG005
     )
 
@@ -215,11 +215,11 @@ class TestReplModelPersistence:
         )
 
         console, _ = _capture()
-        dispatch_slash("/model toolcall set claude-haiku-4-5-20251001", Session(), console)
+        dispatch_slash("/model toolcall set claude-haiku-4-5", Session(), console)
 
-        assert "ANTHROPIC_TOOLCALL_MODEL=claude-haiku-4-5-20251001" in persistence_paths[
-            "env"
-        ].read_text(encoding="utf-8")
+        assert "ANTHROPIC_TOOLCALL_MODEL=claude-haiku-4-5" in persistence_paths["env"].read_text(
+            encoding="utf-8"
+        )
         stored = wizard_store.load_local_config(persistence_paths["store"])["targets"]["local"]
         assert stored["model"] == "claude-opus-4-7"
 
@@ -305,7 +305,7 @@ class TestReplModelPersistence:
 
         # Override the class-level mock to simulate a validation failure
         monkeypatch.setattr(
-            "surfaces.shared.llm_setup.validation.validate_provider_credentials",
+            "surfaces.interactive_shell.command_registry.model.switching.validate_provider_credentials",
             lambda **kwargs: ValidationResult(ok=False, detail="Model 'ghost-model' not found."),  # noqa: ARG005
         )
 
