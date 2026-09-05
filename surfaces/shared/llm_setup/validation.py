@@ -5,6 +5,10 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from config.constants import (
+    DEFAULT_LLM_VALIDATION_TIMEOUT_SECONDS,
+    OLLAMA_VALIDATION_TIMEOUT_SECONDS,
+)
 from surfaces.shared.llm_setup.catalog import ProviderOption
 from surfaces.shared.llm_setup.openai_client import load_openai_client
 from surfaces.shared.llm_setup.validation_result import ValidationResult
@@ -56,7 +60,9 @@ def _provider_validation_label(provider: ProviderOption) -> str:
     return provider.label
 
 
-def _check_ollama(host: str, model: str, timeout: float = 60.0) -> ValidationResult:
+def _check_ollama(
+    host: str, model: str, timeout: float = OLLAMA_VALIDATION_TIMEOUT_SECONDS
+) -> ValidationResult:
     """Check Ollama server connectivity and verify model responds to inference."""
     import httpx
 
@@ -120,7 +126,10 @@ def validate_provider_credentials(
 ) -> ValidationResult:
     """Run a tiny live request against the selected provider."""
     if provider.value == "ollama":
-        return _check_ollama(host=api_key, model=model, timeout=timeout or 60.0)
+        ollama_timeout = timeout if timeout is not None else OLLAMA_VALIDATION_TIMEOUT_SECONDS
+        return _check_ollama(host=api_key, model=model, timeout=ollama_timeout)
+
+    default_timeout = timeout if timeout is not None else DEFAULT_LLM_VALIDATION_TIMEOUT_SECONDS
 
     if provider.value == "azure-openai":
         from surfaces.shared.llm_setup.azure_validation import (
@@ -132,7 +141,7 @@ def validate_provider_credentials(
             deployment=model,
             base_url=os.getenv(provider.endpoint_env, "").strip(),
             api_version=os.getenv(provider.api_version_env, "").strip(),
-            timeout=timeout or 60.0,
+            timeout=default_timeout,
         )
 
     anthropic_client_cls, anthropic_auth_error = _load_anthropic_client()
@@ -140,7 +149,7 @@ def validate_provider_credentials(
 
     try:
         if provider.value in ("anthropic", "custom-anthropic"):
-            anthropic_kwargs: dict[str, Any] = {"api_key": api_key, "timeout": 30.0}
+            anthropic_kwargs: dict[str, Any] = {"api_key": api_key, "timeout": default_timeout}
             if provider.value == "custom-anthropic":
                 # Point the probe at the user's gateway, not api.anthropic.com,
                 # so a "validated" result reflects the endpoint the agent uses.
@@ -170,7 +179,9 @@ def validate_provider_credentials(
         # groq, minimax) — a provider missing from _get_provider_base_url silently falls
         # back to api.openai.com and its (valid) key is reported as rejected.
         base_url = _get_provider_base_url(provider.value)
-        openai_client = openai_client_cls(api_key=api_key, base_url=base_url, timeout=30.0)
+        openai_client = openai_client_cls(
+            api_key=api_key, base_url=base_url, timeout=default_timeout
+        )
         # Only native OpenAI reasoning models use max_completion_tokens; others use max_tokens
         if provider.value == "openai" and model.startswith(("o1", "o3", "o4", "gpt-5")):
             openai_response = openai_client.chat.completions.create(

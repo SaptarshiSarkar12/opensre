@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+from contextlib import nullcontext
 from types import SimpleNamespace
 from typing import Any
 
@@ -24,6 +26,9 @@ class _Console:
     def input(self, prompt: str = "", *, password: bool = False) -> str:
         _ = (prompt, password)
         return self._key
+
+    def status(self, *args, **kwargs) -> nullcontext[None]:  # noqa: ARG002
+        return contextlib.nullcontext()
 
 
 @pytest.fixture(autouse=True)
