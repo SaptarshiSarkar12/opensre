@@ -10,6 +10,7 @@ from __future__ import annotations
 import enum
 import math
 import sys
+import threading
 import time
 from dataclasses import dataclass
 
@@ -75,6 +76,9 @@ _WORDMARK_ROWS: tuple[str, ...] = (
 # A short 60 FPS startup turn; animation stops before the prompt becomes live.
 _WORDMARK_SPIN_FRAME_COUNT = 48
 _WORDMARK_SPIN_FRAME_INTERVAL_SECONDS = 1 / 60
+# When the spin runs under startup work and is asked to stop, it still shows
+# at least this many frames so it always reads as a turn, never a flicker.
+_WORDMARK_SPIN_MIN_FRAMES = 24
 _MIN_PROJECTED_SCALE = 0.08
 _BRAILLE_BASE = 0x2800
 _BRAILLE_LIMIT = 0x28FF
@@ -206,8 +210,18 @@ def _clear_animation(frame: WordmarkSpinFrame) -> str:
     )
 
 
-def animate_launch_wordmark(console: Console) -> None:
-    """Turn the terminal wordmark once before the interactive prompt starts."""
+def animate_launch_wordmark(
+    console: Console,
+    *,
+    stop: threading.Event | None = None,
+    min_frames: int = _WORDMARK_SPIN_MIN_FRAMES,
+) -> None:
+    """Turn the terminal wordmark once before the interactive prompt starts.
+
+    With ``stop``, the turn ends early once the event is set and at least
+    ``min_frames`` have shown — so the runtime can boot under the animation and
+    the prompt appears as soon as it is ready instead of after a fixed delay.
+    """
     if (
         console.file is not sys.stdout
         or not sys.stdout.isatty()
@@ -221,6 +235,8 @@ def animate_launch_wordmark(console: Console) -> None:
     try:
         stream.write(_HIDE_CURSOR)
         for index, frame in enumerate(frames):
+            if stop is not None and stop.is_set() and index >= min_frames:
+                break
             stream.write(
                 _animation_frame(
                     frame,
@@ -341,8 +357,13 @@ def render_launch_banner(
     console: Console | None = None,
     *,
     session: object = None,
+    animate: bool = True,
 ) -> None:
-    """Print the OpenSRE launch banner."""
+    """Print the OpenSRE launch banner.
+
+    ``animate=False`` skips the startup spin — used on terminal resize where the
+    banner must be reprinted instantly at the new width.
+    """
     console = console or Console(
         highlight=False,
         force_terminal=True,
@@ -350,7 +371,8 @@ def render_launch_banner(
         legacy_windows=False,
     )
     banner = build_launch_banner(console, session=session)
-    animate_launch_wordmark(console)
+    if animate:
+        animate_launch_wordmark(console)
     console.print(banner)
 
 
