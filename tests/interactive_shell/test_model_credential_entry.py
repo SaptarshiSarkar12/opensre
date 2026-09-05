@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import contextlib
-from contextlib import nullcontext
+from contextlib import AbstractContextManager
 from types import SimpleNamespace
 from typing import Any
 
@@ -27,7 +27,7 @@ class _Console:
         _ = (prompt, password)
         return self._key
 
-    def status(self, *args, **kwargs) -> nullcontext[None]:  # noqa: ARG002
+    def status(self, *_args: Any, **_kwargs: Any) -> AbstractContextManager[None]:
         return contextlib.nullcontext()
 
 

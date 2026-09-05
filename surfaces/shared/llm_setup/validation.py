@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from config.constants import (
+from config.constants.llm import (
     DEFAULT_LLM_VALIDATION_TIMEOUT_SECONDS,
     OLLAMA_VALIDATION_TIMEOUT_SECONDS,
 )

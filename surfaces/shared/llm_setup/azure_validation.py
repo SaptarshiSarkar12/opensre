@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from config.constants import DEFAULT_LLM_VALIDATION_TIMEOUT_SECONDS
+from config.constants.llm import DEFAULT_LLM_VALIDATION_TIMEOUT_SECONDS
 from core.llm.providers.azure_openai import (
     format_azure_deployment_not_found_message,
     is_azure_deployment_lookup_error,
