@@ -459,6 +459,9 @@ if TYPE_CHECKING:
         LLM_PROVIDER_ENV as LLM_PROVIDER_ENV,
     )
     from config.constants.llm import (
+        MODEL_SWITCH_VALIDATION_TIMEOUT_SECONDS as MODEL_SWITCH_VALIDATION_TIMEOUT_SECONDS,
+    )
+    from config.constants.llm import (
         OLLAMA_VALIDATION_TIMEOUT_SECONDS as OLLAMA_VALIDATION_TIMEOUT_SECONDS,
     )
     from config.constants.llm import (

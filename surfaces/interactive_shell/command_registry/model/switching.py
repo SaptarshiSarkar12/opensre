@@ -9,7 +9,11 @@ from rich.console import Console
 from rich.markup import escape
 
 import surfaces.interactive_shell.command_registry.repl_data as repl_data
-from config.constants.llm import LLM_PROVIDER_ENV
+from config.constants.llm import (
+    LLM_PROVIDER_ENV,
+    MODEL_SWITCH_VALIDATION_TIMEOUT_SECONDS,
+    OLLAMA_VALIDATION_TIMEOUT_SECONDS,
+)
 from config.llm_credentials import resolve_env_credential
 from surfaces.interactive_shell.ui import DIM, ERROR, HIGHLIGHT, WARNING, render_models_table
 from surfaces.shared.llm_setup.catalog import PROVIDER_BY_VALUE, WizardCredentialKind
@@ -84,10 +88,18 @@ def _validate_selected_model(provider: Any, model: str, console: Console) -> boo
     if provider.api_key_env:
         api_key = resolve_env_credential(provider.api_key_env) or provider.credential_default
 
+    # Ollama keeps its full budget: a cold or CPU-bound local model can need
+    # well over the interactive 10s to load. Responsiveness stays in the UI
+    # layer (spinner + Ctrl-C), not in a shortened probe timeout.
+    probe_timeout = (
+        OLLAMA_VALIDATION_TIMEOUT_SECONDS
+        if provider.value == "ollama"
+        else MODEL_SWITCH_VALIDATION_TIMEOUT_SECONDS
+    )
     try:
         with llm_loader(console, f"Validating {escape(model)}..."):
             validation = validate_provider_credentials(
-                provider=provider, api_key=api_key, model=model, timeout=10.0
+                provider=provider, api_key=api_key, model=model, timeout=probe_timeout
             )
     except KeyboardInterrupt:
         console.print(
